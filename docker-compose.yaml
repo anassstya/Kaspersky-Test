@@ -1,0 +1,33 @@
+services:
+  migrate:
+    image: postgres:17-alpine
+    env_file:
+      - .env
+    volumes:
+      - ./migrations:/migrations:ro
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - 'psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 -f /migrations/001_create_tables.up.sql'
+    restart: "no"
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  swagger:
+    image: docker.swagger.io/swaggerapi/swagger-ui
+    ports:
+      - "8081:8080"
+    environment:
+      SWAGGER_JSON: /spec/openapi.yaml
+    volumes:
+      - ./api/openapi.yml:/spec/openapi.yaml:ro
